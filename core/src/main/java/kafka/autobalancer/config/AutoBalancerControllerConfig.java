@@ -11,8 +11,8 @@
 
 package kafka.autobalancer.config;
 
-import kafka.autobalancer.goals.NetworkInUsageDistributionGoal;
-import kafka.autobalancer.goals.NetworkOutUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkInUsageUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkOutUsageUsageDistributionGoal;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
@@ -54,8 +54,8 @@ public class AutoBalancerControllerConfig extends AbstractConfig {
     public static final long DEFAULT_AUTO_BALANCER_CONTROLLER_CONSUMER_RETRY_BACKOFF_MS = 1000;
     public static final long DEFAULT_AUTO_BALANCER_CONTROLLER_ACCEPTED_METRICS_DELAY_MS = Duration.ofMinutes(1).toMillis();
     public static final String DEFAULT_AUTO_BALANCER_CONTROLLER_GOALS = new StringJoiner(",")
-            .add(NetworkInUsageDistributionGoal.class.getName())
-            .add(NetworkOutUsageDistributionGoal.class.getName()).toString();
+            .add(NetworkInUsageUsageDistributionGoal.class.getName())
+            .add(NetworkOutUsageUsageDistributionGoal.class.getName()).toString();
     public static final long DEFAULT_AUTO_BALANCER_CONTROLLER_ANOMALY_DETECT_INTERVAL_MS = 60000;
     public static final long DEFAULT_AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD = 1024 * 1024;
     public static final double DEFAULT_AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION = 0.2;

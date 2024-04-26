@@ -23,52 +23,52 @@ import org.slf4j.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NetworkInUsageDistributionGoal extends AbstractResourceUsageDistributionGoal {
+public class NetworkOutUsageUsageDistributionGoal extends AbstractNetworkUsageDistributionGoal {
     private static final Logger LOGGER = new LogContext().logger(AutoBalancerConstants.AUTO_BALANCER_LOGGER_CLAZZ);
 
     @Override
     public String name() {
-        return NetworkInUsageDistributionGoal.class.getSimpleName();
+        return NetworkOutUsageUsageDistributionGoal.class.getSimpleName();
     }
 
     @Override
     protected Resource resource() {
-        return Resource.NW_IN;
+        return Resource.NW_OUT;
     }
 
     @Override
     public void configure(Map<String, ?> configs) {
         super.configure(configs);
         AutoBalancerControllerConfig controllerConfig = new AutoBalancerControllerConfig(configs, false);
-        this.usageDetectThreshold = controllerConfig.getLong(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD);
+        this.usageDetectThreshold = controllerConfig.getLong(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD);
         this.usageAvgDeviationRatio = Math.max(0.0, Math.min(1.0,
-                controllerConfig.getDouble(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION)));
+                controllerConfig.getDouble(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_DISTRIBUTION_DETECT_AVG_DEVIATION)));
     }
 
     @Override
     public void onBalanceFailed(BrokerUpdater.Broker broker) {
-        LOGGER.warn("Failed to balance broker {} network inbound load after iterating all partitions", broker.getBrokerId());
+        LOGGER.warn("Failed to balance broker {} network outbound load after iterating all partitions", broker.getBrokerId());
     }
 
     @Override
-    public GoalType type() {
-        return GoalType.SOFT;
+    public double weight() {
+        return 1.0;
     }
 
     @Override
     public void validateReconfiguration(Map<String, ?> configs) throws ConfigException {
         Map<String, Object> objectConfigs = new HashMap<>(configs);
         try {
-            if (configs.containsKey(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD)) {
-                long detectThreshold = ConfigUtils.getLong(objectConfigs, AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD);
+            if (configs.containsKey(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD)) {
+                long detectThreshold = ConfigUtils.getLong(objectConfigs, AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD);
                 if (detectThreshold < 0) {
-                    throw new ConfigException(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, detectThreshold);
+                    throw new ConfigException(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD, detectThreshold);
                 }
             }
-            if (configs.containsKey(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION)) {
-                double avgDeviation = ConfigUtils.getDouble(objectConfigs, AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION);
+            if (configs.containsKey(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_DISTRIBUTION_DETECT_AVG_DEVIATION)) {
+                double avgDeviation = ConfigUtils.getDouble(objectConfigs, AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_DISTRIBUTION_DETECT_AVG_DEVIATION);
                 if (avgDeviation < 0 || avgDeviation > 1) {
-                    throw new ConfigException(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, avgDeviation,
+                    throw new ConfigException(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_DISTRIBUTION_DETECT_AVG_DEVIATION, avgDeviation,
                             "Value must be in between 0 and 1");
                 }
             }

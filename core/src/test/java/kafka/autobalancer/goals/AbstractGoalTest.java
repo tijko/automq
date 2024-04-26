@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -46,8 +47,8 @@ public class AbstractGoalTest extends GoalTestBase {
     public void setup() {
         Map<String, Object> config = new HashMap<>();
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, new StringJoiner(",")
-                .add(NetworkInUsageDistributionGoal.class.getName())
-                .add(NetworkOutUsageDistributionGoal.class.getName()).toString());
+                .add(NetworkInUsageUsageDistributionGoal.class.getName())
+                .add(NetworkOutUsageUsageDistributionGoal.class.getName()).toString());
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 0);
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 0);
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, 0.2);
@@ -86,7 +87,7 @@ public class AbstractGoalTest extends GoalTestBase {
         replica4.setLoad(Resource.NW_IN, 40 * 1024 * 1024);
         replica5.setLoad(Resource.NW_IN, 40 * 1024 * 1024);
 
-        Goal goal = goalMap.get(NetworkInUsageDistributionGoal.class.getSimpleName());
+        Goal goal = goalMap.get(NetworkInUsageUsageDistributionGoal.class.getSimpleName());
         AbstractResourceDistributionGoal distributionGoal = (AbstractResourceDistributionGoal) goal;
         distributionGoal.initialize(Set.of(broker0, broker1, broker2));
 
@@ -99,7 +100,7 @@ public class AbstractGoalTest extends GoalTestBase {
         Assertions.assertEquals(0.608, goal.actionAcceptanceScore(new Action(ActionType.MOVE, new TopicPartition(TOPIC_0, 4), 2, 0), cluster), 0.001);
         Assertions.assertEquals(0.5, goal.actionAcceptanceScore(new Action(ActionType.MOVE, new TopicPartition(TOPIC_0, 4), 2, 1), cluster), 0.001);
 
-        List<Action> actions = goal.optimize(cluster, List.of(goal));
+        List<Action> actions = goal.optimize(cluster, List.of(goal), Collections.emptyList());
         Assertions.assertFalse(actions.isEmpty());
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals(2, actions.get(0).getSrcBrokerId());

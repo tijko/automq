@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +47,8 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
     public void setup() {
         Map<String, Object> config = new HashMap<>();
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, new StringJoiner(",")
-                .add(NetworkInUsageDistributionGoal.class.getName())
-                .add(NetworkOutUsageDistributionGoal.class.getName()).toString());
+                .add(NetworkInUsageUsageDistributionGoal.class.getName())
+                .add(NetworkOutUsageUsageDistributionGoal.class.getName()).toString());
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 0);
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 0);
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, 0.2);
@@ -63,10 +64,10 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         AbstractGoal goal = null;
         switch (resource) {
             case NW_IN:
-                goal = (AbstractGoal) goalMap.get(NetworkInUsageDistributionGoal.class.getSimpleName());
+                goal = (AbstractGoal) goalMap.get(NetworkInUsageUsageDistributionGoal.class.getSimpleName());
                 break;
             case NW_OUT:
-                goal = (AbstractGoal) goalMap.get(NetworkOutUsageDistributionGoal.class.getSimpleName());
+                goal = (AbstractGoal) goalMap.get(NetworkOutUsageUsageDistributionGoal.class.getSimpleName());
                 break;
             default:
                 break;
@@ -75,11 +76,11 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
     }
 
     private void testSingleResourceGoalScore(Resource resource) {
-        AbstractResourceUsageDistributionGoal goal;
+        AbstractNetworkUsageDistributionGoal goal;
         if (resource == Resource.NW_IN) {
-            goal = new NetworkInUsageDistributionGoal();
+            goal = new NetworkInUsageUsageDistributionGoal();
         } else {
-            goal = new NetworkOutUsageDistributionGoal();
+            goal = new NetworkOutUsageUsageDistributionGoal();
         }
 
         ClusterModelSnapshot cluster = new ClusterModelSnapshot();
@@ -118,7 +119,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         Assertions.assertEquals(75 * 1024 * 1024, goal.usageAvgDeviation);
         Assertions.assertEquals(425 * 1024 * 1024, goal.usageDistLowerBound);
         Assertions.assertEquals(575 * 1024 * 1024, goal.usageDistUpperBound);
-        Assertions.assertEquals(50 * 1024 * 1024, goal.maxNormalizedLoadBytes);
+        Assertions.assertEquals(50 * 1024 * 1024, goal.linearNormalizerThreshold);
 
         double score0 = goal.brokerScore(broker0);
         double score1 = goal.brokerScore(broker1);
@@ -146,7 +147,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
     public void testGoalConfig() {
 
         Map<String, Object> config = new HashMap<>();
-        config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, NetworkInUsageDistributionGoal.class.getName());
+        config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, NetworkInUsageUsageDistributionGoal.class.getName());
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 5 * 1024 * 1024);
         config.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, 0.1);
         config.put(KafkaConfig.S3NetworkBaselineBandwidthProp(), 50 * 1024 * 1024);
@@ -154,27 +155,27 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         AutoBalancerControllerConfig controllerConfig = new AutoBalancerControllerConfig(config, false);
         List<Goal> goals = controllerConfig.getConfiguredInstances(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, Goal.class);
         Assertions.assertEquals(1, goals.size());
-        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageDistributionGoal);
-        NetworkInUsageDistributionGoal networkInUsageDistributionGoal = (NetworkInUsageDistributionGoal) goals.get(0);
+        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageUsageDistributionGoal);
+        NetworkInUsageUsageDistributionGoal networkInUsageDistributionGoal = (NetworkInUsageUsageDistributionGoal) goals.get(0);
         Assertions.assertEquals(5 * 1024 * 1024, networkInUsageDistributionGoal.usageDetectThreshold);
         Assertions.assertEquals(0.1, networkInUsageDistributionGoal.usageAvgDeviationRatio);
-        Assertions.assertEquals(50 * 1024 * 1024, networkInUsageDistributionGoal.maxNormalizedLoadBytes);
+        Assertions.assertEquals(50 * 1024 * 1024, networkInUsageDistributionGoal.linearNormalizerThreshold);
 
         config.remove(KafkaConfig.S3NetworkBaselineBandwidthProp());
         controllerConfig = new AutoBalancerControllerConfig(config, false);
         goals = controllerConfig.getConfiguredInstances(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, Goal.class);
         Assertions.assertEquals(1, goals.size());
-        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageDistributionGoal);
-        networkInUsageDistributionGoal = (NetworkInUsageDistributionGoal) goals.get(0);
-        Assertions.assertEquals(100 * 1024 * 1024, networkInUsageDistributionGoal.maxNormalizedLoadBytes);
+        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageUsageDistributionGoal);
+        networkInUsageDistributionGoal = (NetworkInUsageUsageDistributionGoal) goals.get(0);
+        Assertions.assertEquals(100 * 1024 * 1024, networkInUsageDistributionGoal.linearNormalizerThreshold);
 
         config.put(KafkaConfig.S3NetworkBaselineBandwidthProp(), String.valueOf(60 * 1024 * 1024));
         controllerConfig = new AutoBalancerControllerConfig(config, false);
         goals = controllerConfig.getConfiguredInstances(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, Goal.class);
         Assertions.assertEquals(1, goals.size());
-        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageDistributionGoal);
-        networkInUsageDistributionGoal = (NetworkInUsageDistributionGoal) goals.get(0);
-        Assertions.assertEquals(60 * 1024 * 1024, networkInUsageDistributionGoal.maxNormalizedLoadBytes);
+        Assertions.assertTrue(goals.get(0) instanceof NetworkInUsageUsageDistributionGoal);
+        networkInUsageDistributionGoal = (NetworkInUsageUsageDistributionGoal) goals.get(0);
+        Assertions.assertEquals(60 * 1024 * 1024, networkInUsageDistributionGoal.linearNormalizerThreshold);
     }
 
     @Test
@@ -213,7 +214,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         replica5.setLoad(resource, 5);
         Assertions.assertEquals(load1, cluster.replicasFor(1).stream().mapToDouble(e -> e.load(resource)).sum());
 
-        List<Action> actions = goal.optimize(cluster, goalMap.values());
+        List<Action> actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         Assertions.assertNotEquals(0, actions.size());
         Assertions.assertNotNull(cluster);
         for (Broker broker : cluster.brokers()) {
@@ -257,7 +258,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         replica8.setLoad(resource, 5);
         Assertions.assertEquals(load1, cluster.replicasFor(1).stream().mapToDouble(e -> e.load(resource)).sum());
 
-        List<Action> actions = goal.optimize(cluster, goalMap.values());
+        List<Action> actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         Assertions.assertNotEquals(0, actions.size());
         Assertions.assertNotNull(cluster);
         for (Broker broker : cluster.brokers()) {
@@ -301,7 +302,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         replica9.setLoad(resource, 15);
         Assertions.assertEquals(load1, cluster.replicasFor(1).stream().mapToDouble(e -> e.load(resource)).sum());
 
-        List<Action> actions = goal.optimize(cluster, goalMap.values());
+        List<Action> actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         Assertions.assertNotEquals(0, actions.size());
         Assertions.assertNotNull(cluster);
         for (Broker broker : cluster.brokers()) {
@@ -355,7 +356,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         Assertions.assertEquals(20, cluster.replicasFor(1).stream().mapToDouble(e -> e.load(Resource.NW_IN)).sum());
         Assertions.assertEquals(90, cluster.replicasFor(1).stream().mapToDouble(e -> e.load(Resource.NW_OUT)).sum());
 
-        List<Action> actions = goal.optimize(cluster, goalMap.values());
+        List<Action> actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         System.out.printf("Actions: %s%n", actions);
         Assertions.assertNotEquals(0, actions.size());
         Assertions.assertNotNull(cluster);
@@ -399,7 +400,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         Broker broker0 = createBroker(cluster, RACK, 0, true);
         Broker broker1 = createBroker(cluster, RACK, 1, true);
         setupCluster(resource, cluster, broker0, broker1);
-        List<Action> actions = goal.optimize(cluster, goalMap.values());
+        List<Action> actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals(new Action(ActionType.MOVE, new TopicPartition(TOPIC_0, 2), 1, 0), actions.get(0));
         cluster.brokers().forEach(b -> Assertions.assertTrue(goal.isBrokerAcceptable(b)));
@@ -410,7 +411,7 @@ public class AbstractResourceUsageDistributionGoalTest extends GoalTestBase {
         broker0.setSlowBroker(true);
         broker1 = createBroker(cluster, RACK, 1, true);
         setupCluster(resource, cluster, broker0, broker1);
-        actions = goal.optimize(cluster, goalMap.values());
+        actions = goal.optimize(cluster, goalMap.values(), Collections.emptyList());
         Assertions.assertTrue(actions.isEmpty());
     }
 

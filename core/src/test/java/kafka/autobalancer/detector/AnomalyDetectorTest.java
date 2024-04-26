@@ -26,8 +26,8 @@ import kafka.autobalancer.config.AutoBalancerControllerConfig;
 import kafka.autobalancer.executor.ActionExecutorService;
 import kafka.autobalancer.goals.AbstractResourceUsageDistributionGoal;
 import kafka.autobalancer.goals.Goal;
-import kafka.autobalancer.goals.NetworkInUsageDistributionGoal;
-import kafka.autobalancer.goals.NetworkOutUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkInUsageUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkOutUsageUsageDistributionGoal;
 import kafka.autobalancer.model.ClusterModel;
 import kafka.autobalancer.model.ClusterModelSnapshot;
 import org.apache.commons.math3.distribution.PoissonDistribution;
@@ -232,8 +232,8 @@ public class AnomalyDetectorTest {
         }
 
         Map<String, ?> configs = new AutoBalancerControllerConfig(Collections.emptyMap(), false).originals();
-        Goal goal0 = new NetworkInUsageDistributionGoal();
-        Goal goal1 = new NetworkOutUsageDistributionGoal();
+        Goal goal0 = new NetworkInUsageUsageDistributionGoal();
+        Goal goal1 = new NetworkOutUsageUsageDistributionGoal();
         goal0.configure(configs);
         goal1.configure(configs);
 
@@ -326,17 +326,17 @@ public class AnomalyDetectorTest {
                 .executor(Mockito.mock(ActionExecutorService.class))
                 .build();
         Assertions.assertEquals(2, detector.goals().size());
-        Assertions.assertEquals(NetworkInUsageDistributionGoal.class, detector.goals().get(0).getClass());
+        Assertions.assertEquals(NetworkInUsageUsageDistributionGoal.class, detector.goals().get(0).getClass());
         Assertions.assertEquals(1024 * 1024, ((AbstractResourceUsageDistributionGoal) detector.goals().get(0)).getUsageDetectThreshold());
         Assertions.assertEquals(0.2, ((AbstractResourceUsageDistributionGoal) detector.goals().get(0)).getUsageAvgDeviationRatio());
-        Assertions.assertEquals(NetworkOutUsageDistributionGoal.class, detector.goals().get(1).getClass());
+        Assertions.assertEquals(NetworkOutUsageUsageDistributionGoal.class, detector.goals().get(1).getClass());
         Assertions.assertEquals(1024 * 1024, ((AbstractResourceUsageDistributionGoal) detector.goals().get(1)).getUsageDetectThreshold());
         Assertions.assertEquals(0.2, ((AbstractResourceUsageDistributionGoal) detector.goals().get(1)).getUsageAvgDeviationRatio());
 
         detector.reconfigure(Map.of(
                 AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, new StringJoiner(",")
-                        .add(NetworkInUsageDistributionGoal.class.getName())
-                        .add(NetworkOutUsageDistributionGoal.class.getName()).toString(),
+                        .add(NetworkInUsageUsageDistributionGoal.class.getName())
+                        .add(NetworkOutUsageUsageDistributionGoal.class.getName()).toString(),
                 AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 2048 * 1024,
                 AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD, 4096 * 1024,
                 AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, 0.3,
@@ -344,10 +344,10 @@ public class AnomalyDetectorTest {
         ));
 
         Assertions.assertEquals(2, detector.goals().size());
-        Assertions.assertEquals(NetworkInUsageDistributionGoal.class, detector.goals().get(0).getClass());
+        Assertions.assertEquals(NetworkInUsageUsageDistributionGoal.class, detector.goals().get(0).getClass());
         Assertions.assertEquals(2048 * 1024, ((AbstractResourceUsageDistributionGoal) detector.goals().get(0)).getUsageDetectThreshold());
         Assertions.assertEquals(0.3, ((AbstractResourceUsageDistributionGoal) detector.goals().get(0)).getUsageAvgDeviationRatio());
-        Assertions.assertEquals(NetworkOutUsageDistributionGoal.class, detector.goals().get(1).getClass());
+        Assertions.assertEquals(NetworkOutUsageUsageDistributionGoal.class, detector.goals().get(1).getClass());
         Assertions.assertEquals(4096 * 1024, ((AbstractResourceUsageDistributionGoal) detector.goals().get(1)).getUsageDetectThreshold());
         Assertions.assertEquals(0.45, ((AbstractResourceUsageDistributionGoal) detector.goals().get(1)).getUsageAvgDeviationRatio());
     }

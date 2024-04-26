@@ -19,8 +19,8 @@ package kafka.autobalancer;
 
 import kafka.autobalancer.config.AutoBalancerControllerConfig;
 import kafka.autobalancer.config.AutoBalancerMetricsReporterConfig;
-import kafka.autobalancer.goals.NetworkInUsageDistributionGoal;
-import kafka.autobalancer.goals.NetworkOutUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkInUsageUsageDistributionGoal;
+import kafka.autobalancer.goals.NetworkOutUsageUsageDistributionGoal;
 import kafka.autobalancer.metricsreporter.AutoBalancerMetricsReporter;
 import kafka.autobalancer.utils.AbstractLoadGenerator;
 import kafka.autobalancer.utils.AutoBalancerClientsIntegrationTestHarness;
@@ -95,8 +95,8 @@ public class AutoBalancerManagerTest extends AutoBalancerClientsIntegrationTestH
     public Map<String, String> overridingControllerProps() {
         Map<String, String> props = new HashMap<>();
         props.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_GOALS, new StringJoiner(",")
-                        .add(NetworkInUsageDistributionGoal.class.getName())
-                        .add(NetworkOutUsageDistributionGoal.class.getName()).toString());
+                        .add(NetworkInUsageUsageDistributionGoal.class.getName())
+                        .add(NetworkOutUsageUsageDistributionGoal.class.getName()).toString());
         props.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_USAGE_DISTRIBUTION_DETECT_THRESHOLD, "0");
         props.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_OUT_USAGE_DISTRIBUTION_DETECT_THRESHOLD, "0");
         props.put(AutoBalancerControllerConfig.AUTO_BALANCER_CONTROLLER_NETWORK_IN_DISTRIBUTION_DETECT_AVG_DEVIATION, "0.2");
