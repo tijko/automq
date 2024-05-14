@@ -45,6 +45,7 @@ public class S3StreamKafkaMetricsManager {
         BASE_ATTRIBUTES_LISTENERS.add(S3_OBJECT_ATTRIBUTES);
         BASE_ATTRIBUTES_LISTENERS.add(FETCH_LIMITER_ATTRIBUTES);
         BASE_ATTRIBUTES_LISTENERS.add(FETCH_EXECUTOR_ATTRIBUTES);
+        BASE_ATTRIBUTES_LISTENERS.add(PARTITION_STATUS_STATISTICS_ATTRIBUTES);
     }
 
     private static Supplier<Boolean> isActiveSupplier = () -> false;

@@ -25,7 +25,7 @@ import com.automq.stream.s3.compact.CompactionManager;
 import com.automq.stream.s3.failover.Failover;
 import com.automq.stream.s3.failover.FailoverRequest;
 import com.automq.stream.s3.failover.FailoverResponse;
-import com.automq.stream.s3.network.AsyncNetworkBandwidthLimiter;
+import com.automq.stream.s3.network.TieredNetworkRateLimiter;
 import com.automq.stream.s3.operator.DefaultS3Operator;
 import com.automq.stream.s3.operator.S3Operator;
 import com.automq.stream.s3.wal.BlockWALService;
@@ -73,8 +73,8 @@ public class DefaultS3Client implements Client {
 
     private final Failover failover;
 
-    private final AsyncNetworkBandwidthLimiter networkInboundLimiter;
-    private final AsyncNetworkBandwidthLimiter networkOutboundLimiter;
+    private final TieredNetworkRateLimiter networkInboundLimiter;
+    private final TieredNetworkRateLimiter networkOutboundLimiter;
 
     public DefaultS3Client(BrokerServer brokerServer, KafkaConfig kafkaConfig) {
         this.config = ConfigUtils.to(kafkaConfig);
@@ -82,10 +82,8 @@ public class DefaultS3Client implements Client {
         String endpoint = kafkaConfig.s3Endpoint();
         String region = kafkaConfig.s3Region();
         String bucket = kafkaConfig.s3Bucket();
-        networkInboundLimiter = new AsyncNetworkBandwidthLimiter(AsyncNetworkBandwidthLimiter.Type.INBOUND,
-                config.networkBaselineBandwidth(), config.refillPeriodMs());
-        networkOutboundLimiter = new AsyncNetworkBandwidthLimiter(AsyncNetworkBandwidthLimiter.Type.OUTBOUND,
-                config.networkBaselineBandwidth(), config.refillPeriodMs());
+        networkInboundLimiter = new TieredNetworkRateLimiter(TieredNetworkRateLimiter.Type.INBOUND, config.networkBaselineBandwidth());
+        networkOutboundLimiter = new TieredNetworkRateLimiter(TieredNetworkRateLimiter.Type.OUTBOUND, config.networkBaselineBandwidth());
         List<AwsCredentialsProvider> credentialsProviders = List.of(CredentialsProviderHolder.getAwsCredentialsProvider(), EnvVariableCredentialsProvider.get());
         boolean forcePathStyle = this.config.forcePathStyle();
         // check s3 availability

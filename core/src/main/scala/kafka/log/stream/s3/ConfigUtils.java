@@ -48,7 +48,6 @@ public class ConfigUtils {
                 .mockEnable(s.s3MockEnable())
                 .objectLogEnable(s.s3ObjectLogEnable())
                 .networkBaselineBandwidth(s.s3NetworkBaselineBandwidthProp())
-                .refillPeriodMs(s.s3RefillPeriodMsProp())
                 .objectRetentionTimeInSecond(s.s3ObjectDeleteRetentionTimeInSecond())
                 .forcePathStyle(s.s3PathStyle());
     }

@@ -52,7 +52,6 @@ public class Config {
     private boolean objectLogEnable = false;
     // 100MB/s
     private long networkBaselineBandwidth = 100 * 1024 * 1024;
-    private int refillPeriodMs = 1000;
     private long objectRetentionTimeInSecond = 10 * 60; // 10min
     private boolean failoverEnable = false;
 
@@ -206,10 +205,6 @@ public class Config {
 
     public long networkBaselineBandwidth() {
         return networkBaselineBandwidth;
-    }
-
-    public int refillPeriodMs() {
-        return refillPeriodMs;
     }
 
     public Config nodeId(int brokerId) {
@@ -399,11 +394,6 @@ public class Config {
 
     public Config networkBaselineBandwidth(long networkBaselineBandwidth) {
         this.networkBaselineBandwidth = networkBaselineBandwidth;
-        return this;
-    }
-
-    public Config refillPeriodMs(int refillPeriodMs) {
-        this.refillPeriodMs = refillPeriodMs;
         return this;
     }
 

@@ -16,8 +16,8 @@ import com.automq.stream.s3.metrics.S3StreamMetricsManager;
 import com.automq.stream.s3.metrics.wrapper.Counter;
 import com.automq.stream.s3.metrics.wrapper.CounterMetric;
 import com.automq.stream.s3.metrics.wrapper.HistogramMetric;
-import com.automq.stream.s3.network.AsyncNetworkBandwidthLimiter;
 import com.automq.stream.s3.network.ThrottleStrategy;
+import com.automq.stream.s3.network.TieredNetworkRateLimiter;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -48,8 +48,8 @@ public class NetworkStats {
         return instance;
     }
 
-    public CounterMetric networkUsageTotalStats(AsyncNetworkBandwidthLimiter.Type type, ThrottleStrategy strategy) {
-        return type == AsyncNetworkBandwidthLimiter.Type.INBOUND
+    public CounterMetric networkUsageTotalStats(TieredNetworkRateLimiter.Type type, ThrottleStrategy strategy) {
+        return type == TieredNetworkRateLimiter.Type.INBOUND
                 ? networkInboundUsageTotalStats.computeIfAbsent(strategy, k -> S3StreamMetricsManager.buildNetworkInboundUsageMetric(strategy))
                 : networkOutboundUsageTotalStats.computeIfAbsent(strategy, k -> S3StreamMetricsManager.buildNetworkOutboundUsageMetric(strategy));
     }
@@ -76,8 +76,8 @@ public class NetworkStats {
         return streamReadBytesStats;
     }
 
-    public HistogramMetric networkLimiterQueueTimeStats(AsyncNetworkBandwidthLimiter.Type type, ThrottleStrategy strategy) {
-        return type == AsyncNetworkBandwidthLimiter.Type.INBOUND
+    public HistogramMetric networkLimiterQueueTimeStats(TieredNetworkRateLimiter.Type type, ThrottleStrategy strategy) {
+        return type == TieredNetworkRateLimiter.Type.INBOUND
                 ? networkInboundLimiterQueueTimeStatsMap.computeIfAbsent(strategy, k -> S3StreamMetricsManager.buildNetworkInboundLimiterQueueTimeMetric(MetricsLevel.INFO, strategy))
                 : networkOutboundLimiterQueueTimeStatsMap.computeIfAbsent(strategy, k -> S3StreamMetricsManager.buildNetworkOutboundLimiterQueueTimeMetric(MetricsLevel.INFO, strategy));
     }

@@ -18,7 +18,7 @@ import com.automq.stream.s3.metrics.TimerUtil;
 import com.automq.stream.s3.metrics.stats.NetworkStats;
 import com.automq.stream.s3.metrics.stats.S3OperationStats;
 import com.automq.stream.s3.metrics.stats.StorageOperationStats;
-import com.automq.stream.s3.network.AsyncNetworkBandwidthLimiter;
+import com.automq.stream.s3.network.TieredNetworkRateLimiter;
 import com.automq.stream.s3.network.ThrottleStrategy;
 import com.automq.stream.utils.FutureUtil;
 import com.automq.stream.utils.ThreadUtils;
@@ -113,8 +113,8 @@ public class DefaultS3Operator implements S3Operator {
     private final Semaphore inflightWriteLimiter;
     private final Semaphore inflightReadLimiter;
     private final List<ReadTask> waitingReadTasks = new LinkedList<>();
-    private final AsyncNetworkBandwidthLimiter networkInboundBandwidthLimiter;
-    private final AsyncNetworkBandwidthLimiter networkOutboundBandwidthLimiter;
+    private final TieredNetworkRateLimiter networkInboundBandwidthLimiter;
+    private final TieredNetworkRateLimiter networkOutboundBandwidthLimiter;
     private final ScheduledExecutorService scheduler = Threads.newSingleThreadScheduledExecutor(
         ThreadUtils.createThreadFactory("s3operator", true), LOGGER);
     private final ExecutorService readLimiterCallbackExecutor = Threads.newFixedThreadPoolWithMonitor(1,
@@ -137,10 +137,10 @@ public class DefaultS3Operator implements S3Operator {
     }
 
     public DefaultS3Operator(String endpoint, String region, String bucket, boolean forcePathStyle,
-        List<AwsCredentialsProvider> credentialsProviders,
-        boolean tagging,
-        AsyncNetworkBandwidthLimiter networkInboundBandwidthLimiter,
-        AsyncNetworkBandwidthLimiter networkOutboundBandwidthLimiter, boolean readWriteIsolate, boolean checkS3ApiModel) {
+                             List<AwsCredentialsProvider> credentialsProviders,
+                             boolean tagging,
+                             TieredNetworkRateLimiter networkInboundBandwidthLimiter,
+                             TieredNetworkRateLimiter networkOutboundBandwidthLimiter, boolean readWriteIsolate, boolean checkS3ApiModel) {
         this.currentIndex = INDEX.incrementAndGet();
         this.maxMergeReadSparsityRate = Utils.getMaxMergeReadSparsityRate();
         this.networkInboundBandwidthLimiter = networkInboundBandwidthLimiter;
@@ -154,7 +154,6 @@ public class DefaultS3Operator implements S3Operator {
         this.bucket = bucket;
         this.checkS3ApiModel = checkS3ApiModel;
         scheduler.scheduleWithFixedDelay(this::tryMergeRead, 1, 1, TimeUnit.MILLISECONDS);
-        checkConfig();
         setDeleteObjectsMode();
         S3StreamMetricsManager.registerInflightS3ReadQuotaSupplier(inflightReadLimiter::availablePermits, currentIndex);
         S3StreamMetricsManager.registerInflightS3WriteQuotaSupplier(inflightWriteLimiter::availablePermits, currentIndex);
@@ -235,7 +234,7 @@ public class DefaultS3Operator implements S3Operator {
         if (networkInboundBandwidthLimiter != null) {
             TimerUtil timerUtil = new TimerUtil();
             networkInboundBandwidthLimiter.consume(throttleStrategy, end - start).whenCompleteAsync((v, ex) -> {
-                NetworkStats.getInstance().networkLimiterQueueTimeStats(AsyncNetworkBandwidthLimiter.Type.INBOUND, throttleStrategy)
+                NetworkStats.getInstance().networkLimiterQueueTimeStats(TieredNetworkRateLimiter.Type.INBOUND, throttleStrategy)
                     .record(timerUtil.elapsedAs(TimeUnit.NANOSECONDS));
                 if (ex != null) {
                     cf.completeExceptionally(ex);
@@ -376,7 +375,7 @@ public class DefaultS3Operator implements S3Operator {
         if (networkOutboundBandwidthLimiter != null) {
             TimerUtil timerUtil = new TimerUtil();
             networkOutboundBandwidthLimiter.consume(throttleStrategy, data.readableBytes()).whenCompleteAsync((v, ex) -> {
-                NetworkStats.getInstance().networkLimiterQueueTimeStats(AsyncNetworkBandwidthLimiter.Type.OUTBOUND, throttleStrategy)
+                NetworkStats.getInstance().networkLimiterQueueTimeStats(TieredNetworkRateLimiter.Type.OUTBOUND, throttleStrategy)
                     .record(timerUtil.elapsedAs(TimeUnit.NANOSECONDS));
                 if (ex != null) {
                     cf.completeExceptionally(ex);
@@ -693,21 +692,6 @@ public class DefaultS3Operator implements S3Operator {
         return "bytes=" + start + "-" + end;
     }
 
-    private void checkConfig() {
-        if (this.networkInboundBandwidthLimiter != null) {
-            if (this.networkInboundBandwidthLimiter.getMaxTokens() < Writer.MIN_PART_SIZE) {
-                throw new IllegalArgumentException(String.format("Network inbound burst bandwidth limit %d must be no less than min part size %d",
-                    this.networkInboundBandwidthLimiter.getMaxTokens(), Writer.MIN_PART_SIZE));
-            }
-        }
-        if (this.networkOutboundBandwidthLimiter != null) {
-            if (this.networkOutboundBandwidthLimiter.getMaxTokens() < Writer.MIN_PART_SIZE) {
-                throw new IllegalArgumentException(String.format("Network outbound burst bandwidth limit %d must be no less than min part size %d",
-                    this.networkOutboundBandwidthLimiter.getMaxTokens(), Writer.MIN_PART_SIZE));
-            }
-        }
-    }
-
     private CompletableFuture<Boolean> asyncCheckDeleteObjectsReturnSuccessDeleteKeys() {
         byte[] content = new Date().toString().getBytes(StandardCharsets.UTF_8);
         String path1 = String.format("check_available/deleteObjectsMode/%d", System.nanoTime());
@@ -1001,8 +985,8 @@ public class DefaultS3Operator implements S3Operator {
         private boolean forcePathStyle;
         private List<AwsCredentialsProvider> credentialsProviders;
         private boolean tagging;
-        private AsyncNetworkBandwidthLimiter inboundLimiter;
-        private AsyncNetworkBandwidthLimiter outboundLimiter;
+        private TieredNetworkRateLimiter inboundLimiter;
+        private TieredNetworkRateLimiter outboundLimiter;
         private boolean readWriteIsolate;
         private int maxReadConcurrency = 50;
         private int maxWriteConcurrency = 50;
@@ -1038,12 +1022,12 @@ public class DefaultS3Operator implements S3Operator {
             return this;
         }
 
-        public Builder inboundLimiter(AsyncNetworkBandwidthLimiter inboundLimiter) {
+        public Builder inboundLimiter(TieredNetworkRateLimiter inboundLimiter) {
             this.inboundLimiter = inboundLimiter;
             return this;
         }
 
-        public Builder outboundLimiter(AsyncNetworkBandwidthLimiter outboundLimiter) {
+        public Builder outboundLimiter(TieredNetworkRateLimiter outboundLimiter) {
             this.outboundLimiter = outboundLimiter;
             return this;
         }

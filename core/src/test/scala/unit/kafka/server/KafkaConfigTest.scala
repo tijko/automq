@@ -1073,7 +1073,6 @@ class KafkaConfigTest {
         case KafkaConfig.S3ObjectDeleteRetentionMinutes => // ignore string
         case KafkaConfig.S3ObjectLogEnableProp => // ignore string
         case KafkaConfig.S3NetworkBaselineBandwidthProp => // ignore string
-        case KafkaConfig.S3RefillPeriodMsProp => // ignore string
         case KafkaConfig.S3MetricsEnableProp => // ignore string
         case KafkaConfig.S3TracerEnableProp => // ignore string
         case KafkaConfig.S3ExporterOTLPEndpointProp => // ignore string

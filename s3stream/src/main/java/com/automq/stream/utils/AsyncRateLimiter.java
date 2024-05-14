@@ -35,6 +35,14 @@ public class AsyncRateLimiter {
         tickTask = SCHEDULER.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.MILLISECONDS);
     }
 
+    public void setRate(double bytesPerSec) {
+        rateLimiter.setRate(bytesPerSec);
+    }
+
+    public double getRate() {
+        return rateLimiter.getRate();
+    }
+
     public synchronized CompletableFuture<Void> acquire(int size) {
         if (acquireQueue.isEmpty() && rateLimiter.tryAcquire(size)) {
             return CompletableFuture.completedFuture(null);

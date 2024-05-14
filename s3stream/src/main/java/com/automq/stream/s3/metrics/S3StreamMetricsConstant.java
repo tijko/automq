@@ -104,6 +104,8 @@ public class S3StreamMetricsConstant {
     public static final String GET_INDEX_TIME_METRIC_NAME = "get_index_time";
     public static final String READ_BLOCK_CACHE_METRIC_NAME = "read_block_cache_stage_time";
     public static final String READ_BLOCK_CACHE_THROUGHPUT_METRIC_NAME = "block_cache_ops_throughput";
+    public static final String NETWORK_INBOUND_RATE_LIMIT_METRIC_NAME = "network_inbound_rate_limit";
+    public static final String NETWORK_OUTBOUND_RATE_LIMIT_METRIC_NAME = "network_outbound_rate_limit";
     public static final AttributeKey<String> LABEL_OPERATION_TYPE = AttributeKey.stringKey("operation_type");
     public static final AttributeKey<String> LABEL_OPERATION_NAME = AttributeKey.stringKey("operation_name");
     public static final AttributeKey<String> LABEL_SIZE_NAME = AttributeKey.stringKey("size");

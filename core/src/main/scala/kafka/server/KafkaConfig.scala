@@ -474,7 +474,6 @@ object KafkaConfig {
   val S3ObjectDeleteRetentionMinutes = "s3.object.delete.retention.minutes"
   val S3ObjectLogEnableProp = "s3.object.log.enable"
   val S3NetworkBaselineBandwidthProp = "s3.network.baseline.bandwidth"
-  val S3RefillPeriodMsProp = "s3.network.refill.period.ms"
   val S3MetricsEnableProp = "s3.telemetry.metrics.enable"
   val S3TracerEnableProp = "s3.telemetry.tracer.enable"
   val S3ExporterOTLPEndpointProp = "s3.telemetry.exporter.otlp.endpoint"
@@ -536,7 +535,6 @@ object KafkaConfig {
   val S3ObjectLogEnableDoc = "Whether to enable S3 object trace log."
   val S3NetworkBaselineBandwidthDoc = "The total available bandwidth for object storage requests. This is used to prevent stream set object compaction and catch-up read from monopolizing normal read and write traffic. Produce and Consume will also separately consume traffic in and traffic out. " +
     "For example, suppose this value is set to 100MB/s, and the normal read and write traffic is 80MB/s, then the available traffic for stream set object compaction is 20MB/s."
-  val S3RefillPeriodMsDoc = "The network bandwidth token refill period in milliseconds."
   val S3MetricsEnableDoc = "Whether to enable OTel metrics exporter."
   val S3TracerEnableDoc = "Whether to enable tracer exporter for s3stream."
   val S3MetricsLevelDoc = "The metrics level that will be used on recording metrics. The \"INFO\" level includes most of the metrics that users should care about, for example throughput and latency of common stream operations. " +
@@ -1437,7 +1435,6 @@ object KafkaConfig {
       .define(S3ObjectDeleteRetentionMinutes, LONG, Defaults.S3_OBJECT_DELETE_RETENTION_MINUTES, MEDIUM, S3ObjectDeleteRetentionMinutesDoc)
       .define(S3ObjectLogEnableProp, BOOLEAN, false, LOW, S3ObjectLogEnableDoc)
       .define(S3NetworkBaselineBandwidthProp, LONG, Defaults.S3_NETWORK_BASELINE_BANDWIDTH, MEDIUM, S3NetworkBaselineBandwidthDoc)
-      .define(S3RefillPeriodMsProp, INT, Defaults.S3_REFILL_PERIOD_MS, MEDIUM, S3RefillPeriodMsDoc)
       .define(S3MetricsEnableProp, BOOLEAN, true, MEDIUM, S3MetricsEnableDoc)
       .define(S3TracerEnableProp, BOOLEAN, false, MEDIUM, S3TracerEnableDoc)
       .define(S3MetricsLevelProp, STRING, "INFO", MEDIUM, S3MetricsLevelDoc)
@@ -2162,7 +2159,6 @@ class KafkaConfig private(doLog: Boolean, val props: java.util.Map[_, _], dynami
   val s3ObjectDeleteRetentionTimeInSecond = getLong(KafkaConfig.S3ObjectDeleteRetentionMinutes) * 60
   val s3ObjectLogEnable = getBoolean(KafkaConfig.S3ObjectLogEnableProp)
   val s3NetworkBaselineBandwidthProp = getLong(KafkaConfig.S3NetworkBaselineBandwidthProp)
-  val s3RefillPeriodMsProp = getInt(KafkaConfig.S3RefillPeriodMsProp)
   val s3MetricsEnable = getBoolean(KafkaConfig.S3MetricsEnableProp)
   val s3TracerEnable = getBoolean(KafkaConfig.S3TracerEnableProp)
   val s3MetricsLevel = getString(KafkaConfig.S3MetricsLevelProp)

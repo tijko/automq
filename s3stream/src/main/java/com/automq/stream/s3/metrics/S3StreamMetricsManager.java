@@ -19,14 +19,16 @@ import com.automq.stream.s3.metrics.wrapper.ConfigListener;
 import com.automq.stream.s3.metrics.wrapper.CounterMetric;
 import com.automq.stream.s3.metrics.wrapper.HistogramInstrument;
 import com.automq.stream.s3.metrics.wrapper.HistogramMetric;
-import com.automq.stream.s3.network.AsyncNetworkBandwidthLimiter;
 import com.automq.stream.s3.network.ThrottleStrategy;
+import com.automq.stream.s3.network.TieredNetworkRateLimiter;
+import com.automq.stream.utils.AsyncRateLimiter;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.metrics.ObservableLongGauge;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,10 +54,8 @@ public class S3StreamMetricsManager {
     private static HistogramInstrument objectStageCost;
     private static LongCounter networkInboundUsageInTotal = new NoopLongCounter();
     private static LongCounter networkOutboundUsageInTotal = new NoopLongCounter();
-    private static ObservableLongGauge networkInboundAvailableBandwidth = new NoopObservableLongGauge();
-    private static ObservableLongGauge networkOutboundAvailableBandwidth = new NoopObservableLongGauge();
-    private static ObservableLongGauge networkInboundLimiterQueueSize = new NoopObservableLongGauge();
-    private static ObservableLongGauge networkOutboundLimiterQueueSize = new NoopObservableLongGauge();
+    private static ObservableLongGauge networkInboundRateLimitMetrics = new NoopObservableLongGauge();
+    private static ObservableLongGauge networkOutboundRateLimitMetrics = new NoopObservableLongGauge();
     private static HistogramInstrument networkInboundLimiterQueueTime;
     private static HistogramInstrument networkOutboundLimiterQueueTime;
     private static HistogramInstrument readAheadSize;
@@ -78,10 +78,8 @@ public class S3StreamMetricsManager {
     private static ObservableLongGauge pendingStreamFetchLatencyMetrics = new NoopObservableLongGauge();
     private static LongCounter compactionReadSizeInTotal = new NoopLongCounter();
     private static LongCounter compactionWriteSizeInTotal = new NoopLongCounter();
-    private static Supplier<Long> networkInboundAvailableBandwidthSupplier = () -> 0L;
-    private static Supplier<Long> networkOutboundAvailableBandwidthSupplier = () -> 0L;
-    private static Supplier<Integer> networkInboundLimiterQueueSizeSupplier = () -> 0;
-    private static Supplier<Integer> networkOutboundLimiterQueueSizeSupplier = () -> 0;
+    private static Supplier<Map<ThrottleStrategy, AsyncRateLimiter>> networkInboundRateLimitSupplier = Collections::emptyMap;
+    private static Supplier<Map<ThrottleStrategy, AsyncRateLimiter>> networkOutboundRateLimitSupplier = Collections::emptyMap;
     private static Supplier<Integer> availableInflightReadAheadSizeSupplier = () -> 0;
     private static Supplier<Long> deltaWalStartOffsetSupplier = () -> 0L;
     private static Supplier<Long> deltaWalTrimmedOffsetSupplier = () -> 0L;
@@ -99,11 +97,14 @@ public class S3StreamMetricsManager {
         S3StreamMetricsConstant.LABEL_TYPE);
     private static final MultiAttributes<String> OPERATOR_INDEX_ATTRIBUTES = new MultiAttributes<>(Attributes.empty(),
             S3StreamMetricsConstant.LABEL_INDEX);
+    private static final MultiAttributes<String> THROTTLE_STRATEGY_ATTRIBUTES = new MultiAttributes<>(Attributes.empty(),
+            S3StreamMetricsConstant.LABEL_TYPE);
 
 
     static {
         BASE_ATTRIBUTES_LISTENERS.add(ALLOC_TYPE_ATTRIBUTES);
         BASE_ATTRIBUTES_LISTENERS.add(OPERATOR_INDEX_ATTRIBUTES);
+        BASE_ATTRIBUTES_LISTENERS.add(THROTTLE_STRATEGY_ATTRIBUTES);
     }
 
     public static void configure(MetricsConfig metricsConfig) {
@@ -143,40 +144,30 @@ public class S3StreamMetricsManager {
             .setDescription("Network outbound usage")
             .setUnit("bytes")
             .build();
-        networkInboundAvailableBandwidth = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_INBOUND_AVAILABLE_BANDWIDTH_METRIC_NAME)
-            .setDescription("Network inbound available bandwidth")
-            .setUnit("bytes")
-            .ofLongs()
-            .buildWithCallback(result -> {
-                if (MetricsLevel.INFO.isWithin(metricsConfig.getMetricsLevel())) {
-                    result.record(networkInboundAvailableBandwidthSupplier.get(), metricsConfig.getBaseAttributes());
-                }
-            });
-        networkOutboundAvailableBandwidth = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_OUTBOUND_AVAILABLE_BANDWIDTH_METRIC_NAME)
-            .setDescription("Network outbound available bandwidth")
-            .setUnit("bytes")
-            .ofLongs()
-            .buildWithCallback(result -> {
-                if (MetricsLevel.INFO.isWithin(metricsConfig.getMetricsLevel())) {
-                    result.record(networkOutboundAvailableBandwidthSupplier.get(), metricsConfig.getBaseAttributes());
-                }
-            });
-        networkInboundLimiterQueueSize = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_INBOUND_LIMITER_QUEUE_SIZE_METRIC_NAME)
-            .setDescription("Network inbound limiter queue size")
-            .ofLongs()
-            .buildWithCallback(result -> {
-                if (MetricsLevel.DEBUG.isWithin(metricsConfig.getMetricsLevel())) {
-                    result.record((long) networkInboundLimiterQueueSizeSupplier.get(), metricsConfig.getBaseAttributes());
-                }
-            });
-        networkOutboundLimiterQueueSize = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_OUTBOUND_LIMITER_QUEUE_SIZE_METRIC_NAME)
-            .setDescription("Network outbound limiter queue size")
-            .ofLongs()
-            .buildWithCallback(result -> {
-                if (MetricsLevel.DEBUG.isWithin(metricsConfig.getMetricsLevel())) {
-                    result.record((long) networkOutboundLimiterQueueSizeSupplier.get(), metricsConfig.getBaseAttributes());
-                }
-            });
+        networkInboundRateLimitMetrics = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_INBOUND_RATE_LIMIT_METRIC_NAME)
+                .setDescription("The rate limit of inbound network")
+                .setUnit("bytes")
+                .ofLongs()
+                .buildWithCallback(result -> {
+                    if (MetricsLevel.INFO.isWithin(metricsConfig.getMetricsLevel())) {
+                        Map<ThrottleStrategy, AsyncRateLimiter> networkRateLimitMap = networkInboundRateLimitSupplier.get();
+                        for (Map.Entry<ThrottleStrategy, AsyncRateLimiter> entry : networkRateLimitMap.entrySet()) {
+                            result.record((long) entry.getValue().getRate(), THROTTLE_STRATEGY_ATTRIBUTES.get(entry.getKey().name()));
+                        }
+                    }
+                });
+        networkOutboundRateLimitMetrics = meter.gaugeBuilder(prefix + S3StreamMetricsConstant.NETWORK_OUTBOUND_RATE_LIMIT_METRIC_NAME)
+                .setDescription("The rate limit of outbound network")
+                .setUnit("bytes")
+                .ofLongs()
+                .buildWithCallback(result -> {
+                    if (MetricsLevel.INFO.isWithin(metricsConfig.getMetricsLevel())) {
+                        Map<ThrottleStrategy, AsyncRateLimiter> networkRateLimitMap = networkOutboundRateLimitSupplier.get();
+                        for (Map.Entry<ThrottleStrategy, AsyncRateLimiter> entry : networkRateLimitMap.entrySet()) {
+                            result.record((long) entry.getValue().getRate(), THROTTLE_STRATEGY_ATTRIBUTES.get(entry.getKey().name()));
+                        }
+                    }
+                });
         networkInboundLimiterQueueTime = new HistogramInstrument(meter, prefix + S3StreamMetricsConstant.NETWORK_INBOUND_LIMITER_QUEUE_TIME_METRIC_NAME,
             "Network inbound limiter queue time", "nanoseconds", () -> NETWORK_INBOUND_LIMITER_QUEUE_TIME_METRICS);
         networkOutboundLimiterQueueTime = new HistogramInstrument(meter, prefix + S3StreamMetricsConstant.NETWORK_OUTBOUND_LIMITER_QUEUE_TIME_METRIC_NAME,
@@ -319,18 +310,11 @@ public class S3StreamMetricsManager {
             .build();
     }
 
-    public static void registerNetworkLimiterSupplier(AsyncNetworkBandwidthLimiter.Type type,
-        Supplier<Long> networkAvailableBandwidthSupplier,
-        Supplier<Integer> networkLimiterQueueSizeSupplier) {
-        switch (type) {
-            case INBOUND:
-                S3StreamMetricsManager.networkInboundAvailableBandwidthSupplier = networkAvailableBandwidthSupplier;
-                S3StreamMetricsManager.networkInboundLimiterQueueSizeSupplier = networkLimiterQueueSizeSupplier;
-                break;
-            case OUTBOUND:
-                S3StreamMetricsManager.networkOutboundAvailableBandwidthSupplier = networkAvailableBandwidthSupplier;
-                S3StreamMetricsManager.networkOutboundLimiterQueueSizeSupplier = networkLimiterQueueSizeSupplier;
-                break;
+    public static void registerNetworkRateLimitSupplier(TieredNetworkRateLimiter.Type type, Supplier<Map<ThrottleStrategy, AsyncRateLimiter>> networkRateLimitSupplier) {
+        if (type == TieredNetworkRateLimiter.Type.INBOUND) {
+            S3StreamMetricsManager.networkInboundRateLimitSupplier = networkRateLimitSupplier;
+        } else {
+            S3StreamMetricsManager.networkOutboundRateLimitSupplier = networkRateLimitSupplier;
         }
     }
 
