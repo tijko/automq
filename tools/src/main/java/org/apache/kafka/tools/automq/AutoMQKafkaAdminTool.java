@@ -28,7 +28,7 @@ public class AutoMQKafkaAdminTool {
     public static final String GENERATE_S3_URL_CMD = "generate-s3-url";
     public static final String GENERATE_START_COMMAND_CMD = "generate-start-command";
     public static final String GENERATE_CONFIG_PROPERTIES_CMD = "generate-configuration-properties";
-
+    public static final String CLUSTER_NODES_INFO = "cluster-nodes-info";
     public static void main(String[] args) {
         // suppress slf4j inner warning log
         System.err.close();
@@ -59,7 +59,10 @@ public class AutoMQKafkaAdminTool {
             .help("generate configuration properties")
             .description(String.format("The command is used to generate configuration properties for brokers or controllers. To review its usage, run '%s -h'.", GENERATE_CONFIG_PROPERTIES_CMD));
         GenerateConfigFileCmd.addArguments(generateConfigPropertiesCmdParser);
-
+        Subparser clusterNodesInfoParser = subparsers.addParser(CLUSTER_NODES_INFO)
+                .help("get cluster nodes info")
+                .description(String.format("The command is used to get cluster nodes info. To review its usage, run '%s -h'.", CLUSTER_NODES_INFO));
+        ClusterNodesInfoCmd.addArguments(clusterNodesInfoParser);
         switch (args[0]) {
             case GENERATE_S3_URL_CMD:
                 processGenerateS3UrlCmd(args, generateS3UrlCmdParser);
@@ -70,6 +73,8 @@ public class AutoMQKafkaAdminTool {
             case GENERATE_CONFIG_PROPERTIES_CMD:
                 processGenConfigPropertiesCmd(args, generateConfigPropertiesCmdParser);
                 break;
+            case CLUSTER_NODES_INFO:
+                processClusterNodesInfoCmd(args, clusterNodesInfoParser);
             default:
                 System.out.println(String.format("Not supported command %s. Check usage first.", args[0]));
                 parser.printHelp();
@@ -128,6 +133,11 @@ public class AutoMQKafkaAdminTool {
     private static void processGenConfigPropertiesCmd(String[] args, ArgumentParser parser) {
         Namespace res = parseArguments(parser, args);
         runCommandWithParameter(parser, res, () -> new GenerateConfigFileCmd(new GenerateConfigFileCmd.Parameter(res)).run());
+    }
+
+    private static void processClusterNodesInfoCmd(String[] args, ArgumentParser parser) {
+        Namespace res = parseArguments(parser, args);
+        runCommandWithParameter(parser, res, () -> new ClusterNodesInfoCmd(new ClusterNodesInfoCmd.Parameter(res)).run());
     }
 
 }
