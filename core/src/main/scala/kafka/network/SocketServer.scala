@@ -919,6 +919,8 @@ private[kafka] class Processor(
   apiVersionManager: ApiVersionManager,
   threadName: String
 ) extends Runnable with Logging {
+  private val maxInflightRequestCountPreConnection = 32
+
   private val metricsGroup = new KafkaMetricsGroup(this.getClass)
 
   val shouldRun: AtomicBoolean = new AtomicBoolean(true)
@@ -1181,7 +1183,7 @@ private[kafka] class Processor(
                 // AutoMQ will pipeline the requests to accelerate the performance and also keep the request order.
 
                 // Mute the channel if the inflight requests exceed the threshold.
-                if (channelContext.nextCorrelationId.size() >= 8 && !channel.isMuted) {
+                if (channelContext.nextCorrelationId.size() >= maxInflightRequestCountPreConnection && !channel.isMuted) {
                   if (isTraceEnabled) {
                     trace(s"Mute channel ${channel.id} because the inflight requests exceed the threshold, inflight count is ${channelContext.nextCorrelationId.size()}.")
                   }
@@ -1229,7 +1231,7 @@ private[kafka] class Processor(
           if (channel.isMuted) {
             val unmute = if (channelContext == null) {
               true
-            } else if (channelContext.nextCorrelationId.size() < 8 && channelContext.clearQueueFull()) {
+            } else if (channelContext.nextCorrelationId.size() < maxInflightRequestCountPreConnection && channelContext.clearQueueFull()) {
               if (isTraceEnabled) {
                 trace(s"Unmute channel ${send.destinationId} because the inflight requests are below the threshold.")
               }
