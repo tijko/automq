@@ -53,6 +53,7 @@ public class ElasticTimeIndex extends TimeIndex {
         } else {
             lastEntry(initLastEntry);
         }
+        log.info("si={}, created time index with last entry {}.", this.stream.stream().streamId(), lastEntry());
     }
 
     @Override
@@ -92,6 +93,51 @@ public class ElasticTimeIndex extends TimeIndex {
             else
                 return parseEntry(null, slot);
         });
+    }
+
+    public void recoverAppend(long timestamp, long offset) {
+        lock.lock();
+        try {
+            if (isFull()) {
+                throw new IllegalArgumentException("Attempt to append to a full time index (size = " + entries() + ").");
+            }
+
+            // We do not throw exception when the offset equals to the offset of last entry. That means we are trying
+            // to insert the same time index entry as the last entry.
+            // If the timestamp index entry to be inserted is the same as the last entry, we simply ignore the insertion
+            // because that could happen in the following two scenarios:
+            // 1. A log segment is closed.
+            // 2. LogSegment.onBecomeInactiveSegment() is called when an active log segment is rolled.
+            TimestampOffset lastEntry = lastEntry();
+            if (entries() != 0 && offset < lastEntry.offset)
+                throw new InvalidOffsetException("Attempt to append an offset (" + offset + ") to slot " + entries()
+                    + " no larger than the last offset appended (" + lastEntry.offset + ") to " + file().getAbsolutePath());
+            if (entries() != 0 && timestamp < lastEntry.timestamp)
+                throw new IllegalStateException("Attempt to append a timestamp (" + timestamp + ") to slot " + entries()
+                    + " no larger than the last timestamp appended (" + lastEntry.timestamp + ") to " + file().getAbsolutePath());
+            if (closed)
+                throw new IllegalStateException("Attempt to append to a closed time index " + file.getAbsolutePath());
+            // We only append to the time index when the timestamp is greater than the last inserted timestamp.
+            // If all the messages are in message format v0, the timestamp will always be NoTimestamp. In that case, the time
+            // index will be empty.
+            if (timestamp > lastEntry.timestamp) {
+                log.info("Adding index entry {} => {} to {}.", timestamp, offset, file().getAbsolutePath());
+
+                ByteBuffer buffer = ByteBuffer.allocate(ENTRY_SIZE);
+                buffer.putLong(timestamp);
+                int relatedOffset = relativeOffset(offset);
+                buffer.putInt(relatedOffset);
+                buffer.flip();
+                long position = stream.nextOffset();
+                lastAppend = stream.append(RawPayloadRecordBatch.of(buffer));
+                cache.put(stream.stream().streamId(), position, Unpooled.wrappedBuffer(buffer));
+                incrementEntries();
+                lastEntry(new TimestampOffset(timestamp, offset));
+            }
+
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override

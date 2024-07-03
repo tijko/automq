@@ -483,23 +483,26 @@ public class ElasticLogSegment extends LogSegment implements Comparable<ElasticL
         int validBytes = 0;
         int lastIndexEntry = 0;
         maxTimestampAndOffsetSoFar = TimestampOffset.UNKNOWN;
-        // exclusive recover from the checkpoint cause the offset the offset of record in batch
+        // exclusive recover from the checkpoint
         long timeIndexCheckpoint = timeIndex.loadLastEntry().offset;
         // exclusive recover from the checkpoint
         OptionalLong txnIndexCheckpoint = txnIndex.loadLastOffset();
         try {
             long recoverPoint = Math.max(producerStateManager.mapEndOffset(), baseOffset);
-            LOGGER.info("{} [UNCLEAN_SHUTDOWN] recover range [{}, {})", logIdent, recoverPoint, log.nextOffset());
+            LOGGER.info("{} [UNCLEAN_SHUTDOWN] recover range [{}, {}), last time index entry: {}, recover point: {}", logIdent, recoverPoint,
+                log.nextOffset(), timeIndex.lastEntry(), timeIndexCheckpoint);
             for (RecordBatch batch : log.batchesFrom(recoverPoint)) {
                 batch.ensureValid();
                 // The max timestamp is exposed at the batch level, so no need to iterate the records
                 if (batch.maxTimestamp() > maxTimestampSoFar()) {
                     maxTimestampAndOffsetSoFar = new TimestampOffset(batch.maxTimestamp(), batch.lastOffset());
+                    LOGGER.info("{} Setting max timestamp and offset to {}", logIdent, maxTimestampAndOffsetSoFar);
                 }
 
                 // Build offset index
                 if (validBytes - lastIndexEntry > indexIntervalBytes && batch.baseOffset() > timeIndexCheckpoint) {
-                    timeIndex.maybeAppend(maxTimestampSoFar(), shallowOffsetOfMaxTimestampSoFar());
+                    LOGGER.info("{} append index entry for timestamp {} at position {}, batch base: {}", logIdent, maxTimestampSoFar(), shallowOffsetOfMaxTimestampSoFar(), batch.baseOffset());
+                    timeIndex.recoverAppend(maxTimestampSoFar(), shallowOffsetOfMaxTimestampSoFar());
                     lastIndexEntry = validBytes;
                 }
                 validBytes += batch.sizeInBytes();
