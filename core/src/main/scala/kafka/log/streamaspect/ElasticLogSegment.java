@@ -211,6 +211,10 @@ public class ElasticLogSegment extends LogSegment implements Comparable<ElasticL
             }
             // append an entry to the index (if needed)
             if (bytesSinceLastIndexEntry > indexIntervalBytes) {
+                LOGGER.info("{} append time index: largestOffset: {}, largestTimestampMs: {}, offsetOfMaxTimestamp: {}" +
+                        " maxTimestampSoFar: {}, shallowOffsetOfMaxTimestampSoFar: {}",
+                    logIdent, largestOffset, largestTimestampMs, offsetOfMaxTimestamp, maxTimestampSoFar(),
+                    shallowOffsetOfMaxTimestampSoFar());
                 timeIndex.maybeAppend(maxTimestampSoFar(), shallowOffsetOfMaxTimestampSoFar());
                 bytesSinceLastIndexEntry = 0;
             }
