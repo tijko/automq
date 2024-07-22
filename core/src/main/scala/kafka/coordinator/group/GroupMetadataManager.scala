@@ -712,6 +712,8 @@ class GroupMetadataManager(brokerId: Int,
           }
         }
 
+        info(s"Finished loading offsets and group metadata from $topicPartition: currOffset: $currOffset, logEndOffset: $logEndOffset, readAtLeastOneRecord: $readAtLeastOneRecord")
+
         val (groupOffsets, emptyGroupOffsets) = loadedOffsets
           .groupBy(_._1.group)
           .map { case (k, v) =>

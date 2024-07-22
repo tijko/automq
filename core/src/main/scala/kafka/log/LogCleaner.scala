@@ -620,12 +620,10 @@ private[log] class Cleaner(val id: Int,
 
 //    val groupedSegments = groupSegmentsBySize(log.logSegments(0, endOffset), log.config.segmentSize,
 //      log.config.maxIndexSize, cleanable.firstUncleanableOffset)
-    val groupedSegments = List[List[LogSegment]]()
-    log.logSegments(0, endOffset).foreach { segment =>
-      groupedSegments :+ List(segment)
-    }
-    for (group <- groupedSegments)
-      cleanSegments(log, group, offsetMap, currentTime, stats, transactionMetadata, legacyDeleteHorizonMs)
+//    for (group <- groupedSegments)
+//      cleanSegments(log, group, offsetMap, currentTime, stats, transactionMetadata, legacyDeleteHorizonMs)
+    for (group <- log.logSegments(0, endOffset))
+      cleanSegments(log, List(group), offsetMap, currentTime, stats, transactionMetadata, legacyDeleteHorizonMs)
 
     // record buffer utilization
     stats.bufferUtilization = offsetMap.utilization
@@ -1242,6 +1240,7 @@ private[log] class Cleaner(val id: Int,
         throttler.maybeThrottle(outputBuffer.limit())
       }
     }
+    info(s"Cleaning $src in log ${topicPartition} into $dest ")
   }
 
   private def buildOffsetMapForSegmentV2(topicPartition: TopicPartition,
