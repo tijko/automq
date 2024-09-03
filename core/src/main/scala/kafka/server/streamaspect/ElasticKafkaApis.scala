@@ -1,7 +1,9 @@
 package kafka.server.streamaspect
 
 import com.automq.stream.s3.metrics.TimerUtil
+import com.automq.stream.s3.operator.{BucketURI, ObjectStorageFactory}
 import com.yammer.metrics.core.Histogram
+import kafka.automq.zonerouter.DefaultProduceRouter
 import kafka.coordinator.transaction.TransactionCoordinator
 import kafka.log.streamaspect.ElasticLogManager
 import kafka.metrics.KafkaMetricsUtil
@@ -20,7 +22,7 @@ import org.apache.kafka.common.message.{DeleteTopicsRequestData, FetchResponseDa
 import org.apache.kafka.common.metrics.Metrics
 import org.apache.kafka.common.network.{NetworkSend, Send}
 import org.apache.kafka.common.protocol.{ApiKeys, Errors}
-import org.apache.kafka.common.record.{LazyDownConversionRecords, MemoryRecords, MultiRecordsSend, PooledResource, RecordBatch}
+import org.apache.kafka.common.record.{LazyDownConversionRecords, MemoryRecords, MultiRecordsSend, PooledResource, RecordBatch, RecordValidationStats}
 import org.apache.kafka.common.replica.ClientMetadata
 import org.apache.kafka.common.replica.ClientMetadata.DefaultClientMetadata
 import org.apache.kafka.common.requests.ProduceResponse.PartitionResponse
@@ -226,7 +228,7 @@ class ElasticKafkaApis(
       val memoryRecords = partition.records.asInstanceOf[MemoryRecords]
       if (!authorizedTopics.contains(topicPartition.topic))
         unauthorizedTopicResponses += topicPartition -> new PartitionResponse(Errors.TOPIC_AUTHORIZATION_FAILED)
-      else if (!metadataCache.contains(topicPartition))
+      else if (!metadataCache.contains(topicPartition) && !topicPartition.topic().equals("__automq_zonerouter"))
         nonExistingTopicResponses += topicPartition -> new PartitionResponse(Errors.UNKNOWN_TOPIC_OR_PARTITION)
       else
         try {
@@ -355,28 +357,58 @@ class ElasticKafkaApis(
       val internalTopicsAllowed = request.header.clientId == AdminUtils.ADMIN_CLIENT_ID
       val transactionSupportedOperation = if (request.header.apiVersion > 10) genericError else defaultError
 
-      def doAppendRecords(): Unit = {
-        // call the replica manager to append messages to the replicas
-        replicaManager.handleProduceAppend(
-          timeout = produceRequest.timeout.toLong,
-          requiredAcks = produceRequest.acks,
-          internalTopicsAllowed = internalTopicsAllowed,
-          transactionalId = produceRequest.transactionalId,
-          entriesPerPartition = authorizedRequestInfo,
-          responseCallback = sendResponseCallback,
-          recordValidationStatsCallback = processingStatsCallback,
-          requestLocal = requestLocal,
-          transactionSupportedOperation = transactionSupportedOperation)
-
-        // if the request is put into the purgatory, it will have a held reference and hence cannot be garbage collected;
-        // hence we clear its data here in order to let GC reclaim its memory since it is already appended to log
-        produceRequest.clearPartitionRecords()
-        PRODUCE_TIME_HIST.update(timerTotal.elapsedAs(TimeUnit.MICROSECONDS))
+      def sendResponseCallbackJava(rst: util.Map[TopicPartition, PartitionResponse]): Unit = {
+        info(s"sendResponseCallbackJava $rst")
+        sendResponseCallback(rst.asScala)
       }
+
+      def processingStatsCallbackJava(rst: util.Map[TopicPartition, RecordValidationStats]): Unit = {
+        processingStatsCallback(rst.asScala)
+      }
+
+      produceRouter.handleProduceAppend(
+        produceRequest.timeout.toLong,
+        produceRequest.acks,
+        internalTopicsAllowed,
+        produceRequest.transactionalId,
+        authorizedRequestInfo.asJava,
+        sendResponseCallbackJava,
+        processingStatsCallbackJava,
+        requestLocal,
+        transactionSupportedOperation,
+        request.header.clientId
+      )
+
+      // if the request is put into the purgatory, it will have a held reference and hence cannot be garbage collected;
+      // hence we clear its data here in order to let GC reclaim its memory since it is already appended to log
+      produceRequest.clearPartitionRecords()
+      PRODUCE_TIME_HIST.update(timerTotal.elapsedAs(TimeUnit.MICROSECONDS))
       // TODO: quick throttle when underline permit is not enough
       // TODO: isolate to a separate thread pool to avoid blocking io thread. Connection should be bind to certain async thread to keep the order
-      doAppendRecords()
     }
+  }
+
+  val produceRouter = new DefaultProduceRouter(this, metadataCache, config, ObjectStorageFactory.instance().builder(BucketURI.parse("0@s3://ko3?region=us-east-1&endpoint=http://127.0.0.1:4566")).build())
+
+  def handleProduceAppendJavaCompatible(timeout: Long,
+    requiredAcks: Short,
+    internalTopicsAllowed: Boolean,
+    transactionalId: String,
+    entriesPerPartition: util.Map[TopicPartition, MemoryRecords],
+    responseCallback: util.Map[TopicPartition, PartitionResponse] => Unit,
+    recordValidationStatsCallback: util.Map[TopicPartition, RecordValidationStats] => Unit = _ => (),
+    apiVersion: Short): Unit = {
+    val transactionSupportedOperation = if (apiVersion > 10) genericError else defaultError
+    replicaManager.handleProduceAppend(
+      timeout = timeout,
+      requiredAcks = requiredAcks,
+      internalTopicsAllowed = internalTopicsAllowed,
+      transactionalId = transactionalId,
+      entriesPerPartition = entriesPerPartition.asScala,
+      responseCallback = rst => responseCallback.apply(rst.asJava),
+      recordValidationStatsCallback = rst => recordValidationStatsCallback.apply(rst.asJava),
+      transactionSupportedOperation = transactionSupportedOperation
+    )
   }
 
   override def handleFetchRequest(request: RequestChannel.Request): Unit = {

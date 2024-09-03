@@ -126,6 +126,7 @@ class KafkaApis(val requestChannel: RequestChannel,
     case _ => None
   }
 
+
   def close(): Unit = {
     aclApis.close()
     info("Shutdown complete.")
