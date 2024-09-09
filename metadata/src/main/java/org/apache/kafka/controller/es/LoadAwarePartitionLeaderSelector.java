@@ -89,4 +89,8 @@ public class LoadAwarePartitionLeaderSelector implements PartitionLeaderSelector
             return randomSelector.select(tp);
         }
     }
+
+    public WeightedRandomList<Integer> getBrokerLoads() {
+        return brokerLoads;
+    }
 }

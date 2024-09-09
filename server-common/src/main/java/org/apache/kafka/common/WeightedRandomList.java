@@ -62,6 +62,14 @@ public class WeightedRandomList<T> {
         return entityList.size();
     }
 
+    @Override
+    public String toString() {
+        return "WeightedRandomList{" +
+            "entityList=" + entityList +
+            ", cumulativeNormalizedWeights=" + cumulativeNormalizedWeights +
+            '}';
+    }
+
     public static class Entity<T> {
         private final T value;
         private double weight;
@@ -81,6 +89,14 @@ public class WeightedRandomList<T> {
 
         public double weight() {
             return weight;
+        }
+
+        @Override
+        public String toString() {
+            return "Entity{" +
+                "value=" + value +
+                ", weight=" + weight +
+                '}';
         }
     }
 }

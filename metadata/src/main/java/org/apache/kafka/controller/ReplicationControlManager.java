@@ -93,6 +93,7 @@ import org.apache.kafka.common.requests.AlterPartitionRequest;
 import org.apache.kafka.common.requests.ApiError;
 import org.apache.kafka.common.utils.LogContext;
 import org.apache.kafka.controller.es.AutoMQCreateTopicPolicy;
+import org.apache.kafka.controller.es.ClusterStats;
 import org.apache.kafka.controller.es.CreatePartitionPolicy;
 import org.apache.kafka.controller.es.ElasticCreatePartitionPolicy;
 import org.apache.kafka.controller.es.LoadAwarePartitionLeaderSelector;
@@ -2125,6 +2126,7 @@ public class ReplicationControlManager {
         PartitionLeaderSelector partitionLeaderSelector = null;
         // AutoMQ for Kafka inject end
 
+        Map<Integer, Integer> assignedResult = new HashMap<>();
         while (iterator.hasNext()) {
             TopicIdPartition topicIdPart = iterator.next();
             TopicControlInfo topic = topics.get(topicIdPart.topicId());
@@ -2165,10 +2167,18 @@ public class ReplicationControlManager {
                 } else {
                     if (partitionLeaderSelector == null) {
                         partitionLeaderSelector = new LoadAwarePartitionLeaderSelector(clusterControl.getActiveBrokers(), brokerRegistrationToRemove);
+                        if (brokerToRemove != NO_LEADER) {
+                            log.info("[BROKER_FENCE] Cluster before: {}", ClusterStats.getInstance().brokerLoads());
+                        }
                     }
                     partitionLeaderSelector
                         .select(new TopicPartition(topic.name(), topicIdPart.partitionId()))
-                        .ifPresent(builder::setTargetNode);
+                        .ifPresent(i -> {
+                            builder.setTargetNode(i);
+                            if (brokerToRemove != NO_LEADER) {
+                                assignedResult.compute(i, (k, v) -> v == null ? 1 : v + 1);
+                            }
+                        });
                 }
                 if (fencing) {
                     TopicPartition topicPartition = new TopicPartition(topic.name(), topicIdPart.partitionId());
@@ -2182,6 +2192,10 @@ public class ReplicationControlManager {
 
             builder.setDefaultDirProvider(clusterDescriber)
                     .build().ifPresent(records::add);
+        }
+        if (brokerToRemove != NO_LEADER) {
+            log.info("[BROKER_FENCE] Assigned result for broker {} down: {}", brokerToRemove, assignedResult);
+            log.info("[BROKER_FENCE] Cluster after: {}", ((LoadAwarePartitionLeaderSelector) partitionLeaderSelector).getBrokerLoads());
         }
         if (records.size() != oldSize) {
             if (log.isDebugEnabled()) {

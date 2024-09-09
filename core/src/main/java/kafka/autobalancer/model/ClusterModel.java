@@ -161,15 +161,17 @@ public class ClusterModel {
                         tpLoads = null;
                         break;
                     }
-                    tpLoads.put(tp, partitionLoad(replica));
+                    double partitionLoad = partitionLoad(replica);
+                    tpLoads.put(tp, partitionLoad);
                     brokerLoads.compute(brokerId, (id, load) -> {
                         if (load == null) {
-                            return partitionLoad(replica);
+                            return partitionLoad;
                         }
-                        return load + partitionLoad(replica);
+                        return load + partitionLoad;
                     });
                 }
                 if (invalid) {
+                    logger.info("Update cluster load, some metrics are out of date");
                     break;
                 }
             }
